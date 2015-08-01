@@ -1,0 +1,4 @@
+name = Axelerant Test module
+description = Implements module according to specifications given in interview.
+package = Axelerant Test
+core = 7.x

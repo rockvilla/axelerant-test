@@ -1,0 +1,107 @@
+<?php
+
+/**
+ * Implements hook_menu()
+ *
+ * Create url to output JSON of node id passed from URL
+ */
+function axelerant_test_menu() {
+  $items['page_json/%/%'] =array (
+      'title' => 'JSON node output',
+      'page callback' => 'page_json_node',
+      'page arguments' => array(1,2), // The matched wildcard.
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+
+  $items['page_json'] =array (
+      'title' => 'JSON node output',
+      'page callback' => 'page_json_node',
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+    );
+
+  return $items;
+}
+
+/**
+ * Page callback function for 'page_json/%/%'
+ */
+function page_json_node($apikey = Null, $node_id = Null) {
+
+  if( $apikey == variable_get('siteapikey') && !empty($node_id) ) {
+
+    $cache = cache_get('axelerant_test_data_'.$node_id);
+
+    if ( $cache && !empty($cache->data) ) {
+      $my_data = unserialize($cache->data);
+    }
+    else {
+      $my_data = axelerant_test_check_and_load_node($node_id);
+      // Let's cache the data
+      cache_set('axelerant_test_data_'.$node_id, serialize($my_data), 'cache', time() + 900); // Cache data for 15 mins
+    }
+
+    drupal_json_output($my_data);
+  }
+  else {
+   drupal_json_output("access denied");
+  }
+
+}
+
+/**
+ * Function to load nodes of only Page content type
+ */
+function axelerant_test_check_and_load_node($node_id) {
+  $node =  node_load($node_id);
+
+  if($node->type == 'page') {
+    return $node;
+  }
+  else {
+    return "access denied";
+  }
+
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter()
+ *
+ * Add extra text field to store API key value. Also let's add custom submit
+ * handler to process the value.
+ */
+function axelerant_test_form_system_site_information_settings_alter(&$form, &$form_state, $form_id) {
+
+  $siteapikey = variable_get('siteapikey');
+  $form['site_information']['site_api_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Site API key'),
+    '#default_value' => !empty($siteapikey) ? $siteapikey : 'No API Key yet',
+    );
+
+  if(!empty($siteapikey)) {
+    $form['actions']['submit']['#value'] = 'Update Configuration';
+  }
+
+  array_unshift($form['#submit'], 'axelerent_test_system_site_information_settings_submit');
+
+}
+
+
+/**
+ * Custom form submit handler for form 'system_site_information_settings'
+ *
+ */
+function axelerent_test_system_site_information_settings_submit($form, &$form_state) {
+
+  if($form_state['values']['site_api_key'] !== $form['site_information']['site_api_key']['#default_value']) {
+    variable_set('siteapikey', $form_state['values']['site_api_key']);
+
+    if(!empty($form_state['values']['site_api_key'])) {
+      drupal_set_message("Site API key set to " . $form_state['values']['site_api_key']);
+    }
+
+  }
+}
